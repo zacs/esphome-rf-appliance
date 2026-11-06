@@ -8,7 +8,7 @@ Every claim below was checked in source at the commit in the pin table. File and
 
 **Go for Phase 1 (board bring-up).** The driver, the ESPHome entity and the HA receiver all exist and fit together. Nothing in Phase 1 depends on the open questions below.
 
-**Three things in the brief cannot be met by stock HA and ESPHome as they stand.** Each needs an owner decision before Phase 3. Details are in [Decisions for the owner](#decisions-for-the-owner).
+**Three things in the brief cannot be met by stock HA and ESPHome as they stand.** The owner chose a way around each on 2026-11-06. Details are in [Decisions for the owner](#decisions-for-the-owner).
 
 1. An ESPHome radio frequency entity reports **one** frequency range. A two-band puck cannot report two honest ranges on one entity.
 2. The receive message carries **no frequency**. HA always gets `frequency=None`.
@@ -203,12 +203,20 @@ From `rtl_433_tests` at `1aa8c29`: 3,620 `.cu8` files.
 | RGB LED | Discrete RGB on PWM: R GPIO17, G GPIO15, B GPIO16. Not a WS2812. | M5 `main/app_led/led_ctrl.h:7-9` |
 | Button | GPIO45. | M5 `main/app_gpio/user_key.h:13` |
 | Flash size | Not confirmed. The demo's `sdkconfig` says 2 MB, but that is a demo default. Check with `esptool flash_id`. | |
-| Host-port VBUS switch | Unknown. Not in the demo. Needs the schematic or a meter. | |
+| Host-port VBUS switch | **None.** Checked in Phase 1 against the schematic: VBUS is always on, fed from SYS_5V through a Schottky diode. See `docs/M5-BRINGUP.md`. | Schematic p.4 |
 | PoE draw, dongle draw, temperature | Phase 1 measurements. | |
 
 ## Decisions for the owner
 
 These block Phase 3, not Phase 1.
+
+**Decided 2026-11-06: the owner accepted the recommended option for all three (D1a, D2a, D3a).** In short:
+
+- One receiver entity per configured band, on one device. Each entity reports its band's range: centre ± half the sample rate.
+- HA gets no frequency with a burst. The band lives in the entity. The last carrier offset is a diagnostic sensor, disabled by default.
+- The Radio frequency panel check is replaced by three checks: the receiver entities are on the device page, `radio_frequency/list` returns them under `receivers`, and their state timestamp moves when a remote is pressed.
+
+The original options follow, for the record.
 
 **D1. One range per entity.** A puck on 433.92 MHz at 250 kS/s and 915 MHz at 2048 kS/s hears 433.795-434.045 MHz and 913.976-916.024 MHz. One ESPHome entity can only say one range.
 
@@ -230,9 +238,12 @@ Not a decision, but worth knowing: every forwarded burst writes a state row to H
 
 ## Not checked
 
-- The M5 schematic and docs page (blocked host). Pins above come from vendor firmware instead.
 - The three comments on rtl-433-hass/rtl_433#296. I read the opening post and the esphome-rtl433 README it points to.
-- That ESPHome 2026.10.2 builds with ESP-IDF 6.1. esphome-rtl433's compile test uses 6.1.0 (`tests/p4-wifi6-poe-eth.yaml`), but against an unpinned ESPHome. The first Phase 1 compile settles it.
+
+Settled in Phase 1 (2026-11-06):
+
+- The M5 docs page and main schematic were read once those hosts were allowed. Every pin above matches. The VBUS answer is in the hardware table.
+- ESPHome 2026.10.2 builds the puck firmware with ESP-IDF 6.1.0 and the pinned driver, with no warnings. ESPHome warns that 6.1.0 is not its recommended version (5.5.6). That is expected: 6.1 is what esphome-rtl433 and M5's P4X guidance use.
 
 ## Links
 
