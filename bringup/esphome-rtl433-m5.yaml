@@ -1,0 +1,88 @@
+# Bring-up step 1: prove the M5 Unit PoE-P4 and the NooElec dongle with esphome-rtl433, unmodified.
+#
+# This is davidcoulson/esphome-rtl433's own example (examples/p4-wifi6-poe-eth.yaml at v0.1.13), with
+# only the board block changed for the M5. It is a hardware test, not the base of this project, and it
+# is not forked: the component is pulled from upstream at a pinned tag.
+#
+# Pass: the log shows the dongle attached at high speed, both bands visited, and frames detected.
+# Their HTTP API (port 8433, read-only here) shows stats at /cmd?cmd=get_stats.
+# Then flash examples/m5-unit-poe-p4.yaml for step 2.
+
+substitutions:
+  # esptool chip_id: below v3.0 (Unit PoE-P4) -> "true"; v3.x (Unit PoE-P4X) -> "false"
+  engineering_sample: "true"
+
+esphome:
+  name: rtl433-m5
+  friendly_name: RTL433 M5 bring-up
+
+# Board block: the only part that differs from esphome-rtl433's example
+esp32:
+  variant: esp32p4
+  engineering_sample: ${engineering_sample}
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    version: 6.1.0
+
+psram:
+  mode: hex
+  speed: 200MHz
+
+logger:
+  level: INFO
+  hardware_uart: UART0
+
+api:
+  encryption:
+    key: !secret rf_puck_api_key
+
+ota:
+  - platform: esphome
+    password: !secret rf_puck_ota_password
+
+time:
+  - platform: sntp
+
+# M5 Unit PoE-P4: same IP101 pins as the Waveshare board esphome-rtl433 was verified on
+ethernet:
+  type: IP101
+  mdc_pin: GPIO31
+  mdio_pin: GPIO52
+  power_pin: GPIO51
+  clk:
+    mode: CLK_EXT_IN
+    pin: GPIO50
+  phy_addr: 1
+# End of board block
+
+external_components:
+  - source: github://davidcoulson/esphome-rtl433@v0.1.13
+    components: [rtl_433]
+
+rtl_433:
+  frequencies:
+    - frequency: 433.92MHz
+      sample_rate: 250k
+      hop_interval: 30s
+    - frequency: 915MHz
+      sample_rate: 2048k
+      hop_interval: 30s
+  remote_control: false
+  detector:
+    auto_level: true
+    squelch: true
+  effective_sample_rate:
+    name: Effective Sample Rate
+  usb_overruns:
+    name: USB Overruns
+  dropped_samples:
+    name: Dropped Samples
+  cpu_load_core0:
+    name: CPU Load Core 0
+  cpu_load_core1:
+    name: CPU Load Core 1
+
+sensor:
+  - platform: internal_temperature
+    name: Chip Temperature
