@@ -1,0 +1,148 @@
+# RF puck: M5Stack Unit PoE-P4 + NooElec NESDR SMArt v5, receive only.
+#
+# Phase 1 (board bring-up): the rtl_sdr hub streams both bands and counts samples. There is no
+# radio frequency receiver entity yet; that is Phase 3. See docs/M5-BRINGUP.md.
+#
+# Before the first flash:
+#   1. esptool chip_id         -> chip revision. Below v3.0 (Unit PoE-P4, SKU U213): engineering_sample: "true".
+#                                 v3.x (Unit PoE-P4X): engineering_sample: "false".
+#   2. esptool flash_id        -> flash size. Change flash_size below if it is not 16MB.
+#   3. Copy examples/secrets.yaml.example to examples/secrets.yaml and fill it in.
+
+substitutions:
+  name: rf-puck
+  friendly_name: RF Puck
+  engineering_sample: "true"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2026.10.2
+
+esp32:
+  variant: esp32p4
+  engineering_sample: ${engineering_sample}
+  flash_size: 16MB
+  # 360 MHz is what esphome-rtl433 measured on; ESPHome marks 400 MHz experimental on the P4
+  cpu_frequency: 360MHZ
+  framework:
+    type: esp-idf
+    version: 6.1.0
+
+# ESP32-P4NRW32: 32 MB in-package PSRAM. The sample blocks and the driver's pull ring live here.
+psram:
+  mode: hex
+  speed: 200MHz
+
+logger:
+  # Quiet in normal operation: counts, not samples
+  level: INFO
+  # The P4's USB-serial/JTAG console can hang while the USB host stack starts. UART0 is the
+  # vendor demo's console; network logs (esphome logs) work regardless.
+  hardware_uart: UART0
+
+api:
+  encryption:
+    key: !secret rf_puck_api_key
+  # Ethernet only: no Wi-Fi watchdog, so this is the recovery for "link up but unreachable"
+  reboot_timeout: 15min
+
+ota:
+  - platform: esphome
+    password: !secret rf_puck_ota_password
+
+# IP101GRI over RMII. Pins from M5's demo firmware and ESP-IDF's ESP32-P4 EMAC defaults (docs/M5-BRINGUP.md).
+# power_pin is passed to the PHY as its reset GPIO: on this board GPIO51 is PHY reset.
+ethernet:
+  type: IP101
+  mdc_pin: GPIO31
+  mdio_pin: GPIO52
+  power_pin: GPIO51
+  clk:
+    mode: CLK_EXT_IN
+    pin: GPIO50
+  phy_addr: 1
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [rtl_sdr]
+
+# Common-anode RGB LED on PWM: R GPIO17, G GPIO15, B GPIO16. Internal: status only, not an HA entity.
+output:
+  - platform: ledc
+    id: led_r
+    pin: GPIO17
+    inverted: true
+  - platform: ledc
+    id: led_g
+    pin: GPIO15
+    inverted: true
+  - platform: ledc
+    id: led_b
+    pin: GPIO16
+    inverted: true
+
+light:
+  - platform: rgb
+    id: status_rgb
+    internal: true
+    red: led_r
+    green: led_g
+    blue: led_b
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
+
+rtl_sdr:
+  id: sdr
+  bands:
+    - frequency: 433.92MHz
+      sample_rate: 250k
+      dwell: 30s
+    - frequency: 915MHz
+      sample_rate: 2048k
+      dwell: 30s
+  gain: auto
+  r820t2_if_mode: table
+  usb_buffer: 1MB
+  status_light: status_rgb
+  update_interval: 60s
+  # Diagnostics. The Phase 1 exit reads dropped_samples and usb_overruns.
+  dongle:
+    name: Dongle
+  dropped_samples:
+    name: Dropped Samples
+  usb_overruns:
+    name: USB Overruns
+  stream_restarts:
+    name: Stream Restarts
+  # Noisy ones: disabled by default in HA, still sent over the API for the smoke test
+  band:
+    name: Band
+  samples:
+    name: Samples
+  effective_sample_rate:
+    name: Effective Sample Rate
+  heap_free:
+    name: Heap Free
+  psram_free:
+    name: PSRAM Free
+  reader_stack_free:
+    name: Reader Stack Free
+  dsp_stack_free:
+    name: DSP Stack Free
+  cpu_load_core0:
+    name: CPU Load Core 0
+  cpu_load_core1:
+    name: CPU Load Core 1
+
+sensor:
+  - platform: internal_temperature
+    name: Chip Temperature
+    entity_category: diagnostic
+    update_interval: 60s
+  # The smoke test reads this to spot a reboot during a soak
+  - platform: uptime
+    name: Uptime
+    update_interval: 60s
