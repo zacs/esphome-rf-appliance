@@ -79,7 +79,7 @@ You need: the M5, the NooElec SMArt v5 with its antenna, a short USB-C (male) to
 1. Enter download mode (see the table above). Connect the download USB-C to the PC.
 2. Run `esptool --chip esp32p4 chip_id` and `esptool --chip esp32p4 flash_id`.
 3. Set `engineering_sample` in both YAML files from the revision: below v3.0 is `"true"`, v3.x is `"false"`. Fix `flash_size` if it is not 16 MB.
-4. Copy `examples/secrets.yaml.example` to `examples/secrets.yaml` and to `bringup/secrets.yaml`. Fill in a fresh API key and OTA password.
+4. Copy `examples/secrets.yaml.example` to `examples/secrets.yaml` and to `bringup/secrets.yaml`. Fill in a fresh API key. It encrypts both the native API and OTA uploads, so there is no OTA password.
 
 ### Step 1: prove the hardware with esphome-rtl433
 

@@ -49,7 +49,8 @@ api:
 
 ota:
   - platform: esphome
-    password: !secret rf_puck_ota_password
+    # Encrypted uploads with the api key above: one key per device, no separate OTA password
+    encryption:
 
 # IP101GRI over RMII. Pins from M5's demo firmware and ESP-IDF's ESP32-P4 EMAC defaults (docs/M5-BRINGUP.md).
 # power_pin is passed to the PHY as its reset GPIO: on this board GPIO51 is PHY reset.

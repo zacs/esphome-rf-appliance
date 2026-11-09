@@ -294,9 +294,7 @@ EXAMPLES = [REPO / "examples" / "m5-unit-poe-p4.yaml"]
 
 def write_secrets(directory: pathlib.Path) -> None:
     key = base64.b64encode(os.urandom(32)).decode()
-    (directory / "secrets.yaml").write_text(
-        f'rf_puck_api_key: "{key}"\nrf_puck_ota_password: "config-test-only"\n'
-    )
+    (directory / "secrets.yaml").write_text(f'rf_puck_api_key: "{key}"\n')
 
 
 def run(args, cwd):
@@ -377,6 +375,18 @@ def check_case(name, mutator, checks):
         return name, failures, out
 
 
+def top_level_block(output: str, key: str) -> str:
+    """The lines under one top-level key of the `esphome config` dump."""
+    lines = output.splitlines()
+    start = lines.index(f"{key}:")
+    block = []
+    for line in lines[start + 1 :]:
+        if line and not line[0].isspace():
+            break
+        block.append(line)
+    return "\n".join(block)
+
+
 def check_example(path: pathlib.Path):
     with tempfile.TemporaryDirectory(prefix="rtlsdr-ex-") as tmp:
         tmp = pathlib.Path(tmp)
@@ -386,7 +396,16 @@ def check_example(path: pathlib.Path):
         shutil.copy(path, tmp / "examples" / path.name)
         write_secrets(tmp / "examples")
         code, out = run(["config", str(tmp / "examples" / path.name)], tmp)
-        return f"example {path.name}", [] if code == 0 else ["validation failed"], out
+        if code != 0:
+            return f"example {path.name}", ["validation failed"], out
+        # OTA uploads are encrypted with the api key, and there is no OTA password
+        ota_block = top_level_block(out, "ota")
+        failures = []
+        if "encryption:" not in ota_block:
+            failures.append("ota is not encrypted")
+        if "password:" in ota_block:
+            failures.append("ota still has a password")
+        return f"example {path.name}", failures, out
 
 
 def main():

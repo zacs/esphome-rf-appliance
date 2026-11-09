@@ -39,7 +39,8 @@ api:
 
 ota:
   - platform: esphome
-    password: !secret rf_puck_ota_password
+    # Encrypted uploads with the api key above: one key per device, no separate OTA password
+    encryption:
 
 time:
   - platform: sntp
