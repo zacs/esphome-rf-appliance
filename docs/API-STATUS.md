@@ -18,7 +18,7 @@ Every claim below was checked in source at the commit in the pin table. File and
 
 | Upstream | Pin | Notes |
 | --- | --- | --- |
-| Home Assistant core | `dev` at `6d60348abcce14040dbce48ce38e38a5c2ceb6fc` | Merge of core#189484, 2026-11-02. Version `2026.12.0.dev0` (`homeassistant/const.py:24-26`). |
+| Home Assistant core | `dev` at `6d60348abcce14040dbce48ce38e38a5c2ceb6fc` | Merge of core#189484, 2026-11-02. Version `2026.12.0.dev0` (`homeassistant/const.py:24-26`). Re-checked on `dev` `112e354` (2026-11-24): RF code unchanged. |
 | Home Assistant core, last release | `2026.11.0` at `74cf5a49c63ed8d4d87717844bf14f79c28c9cea` | Has the generic receiver entity, but **not** the ESPHome receiver. |
 | aioesphomeapi | `v46.25.0` at `696f12f277651e43b60874e8745dd8945850d92d` | The version HA pins (`homeassistant/components/esphome/manifest.json:22`). |
 | ESPHome | `2026.10.2` at `9a78022ded2285861f10de50168a0aa71e2a4322` | Current stable. Proposed pin. |
@@ -236,6 +236,32 @@ The original options follow, for the record.
 
 Not a decision, but worth knowing: every forwarded burst writes a state row to HA's recorder. I plan a low default rate cap (about 2 per second) and a 1-second dedupe window, to tune on real traffic.
 
+**D4 (open, needed before Phase 3's exit). How to show a "test subscriber" gets timings, in stock HA.** Found in the 2026-11-24 re-check. Stock HA has no way to show the timings of a received RF signal:
+
+- No integration in core consumes an RF receiver yet. `RadioFrequencyReceiverConsumerEntity` is used only by its own tests. The demo integration (`kitchen_sink`) has an RF transmitter but no RF receiver consumer. Infrared, by contrast, has several receiver consumers.
+- The only websocket command is `radio_frequency/list`. There is no subscription for received signals.
+- What stock HA does show is the receiver entity's state: the timestamp of the last signal.
+
+Options:
+
+- (a) Use two checks together. A script using aioesphomeapi subscribes to the same `InfraredRFReceiveEvent` messages HA's ESPHome integration gets, and records the timings and arrival time. HA's receiver entity timestamp shows HA got the same burst. HA's mapping adds nothing in between: it filters on key and device_id, then wraps the timings (`esphome/radio_frequency.py:126-135`). *Recommended.*
+- (b) As (a), plus a throwaway dev HA instance with a ten-line custom consumer calling `async_subscribe_receiver`. This proves the callback chain inside HA. The acceptance instance itself stays free of custom components.
+- (c) Wait for the first RF receiver consumer integration in core.
+
+## Re-check, 2026-11-24
+
+After word that RF receiving is "officially in HA" (core#186686):
+
+- core#186686 was closed on 2026-10-23 by core#186720, the generic receiver entity. That shipped in **2026.11.0**.
+- The ESPHome receiver mapping (core#189484) is still only on `dev`, which is `2026.12.0.dev0`. It is not in 2026.11.0 to 2026.11.3, and the 2026.12 beta has not been cut. First release with it: **2026.12.0**.
+- `dev` at `112e3548608f89297987c46bbfbca9666737e5b1`: `radio_frequency/`, `esphome/radio_frequency.py` and their tests are byte-identical to our pin `6d60348`. Nothing to adjust.
+- HA now pins aioesphomeapi `46.30.0` (core#192598). Its diff from `46.25.0` does not touch the IR/RF messages or models.
+- Frontend `dev` at `56bd78d`: the Radio frequency panel still lists transmitters only. D3 still applies.
+- ESPHome: `2026.11.0` is branched (`release` at `1feda1b`) but not tagged. Through `2026.11.0b7` and `dev` at `a2e467e`, the RF/IR messages in `api.proto` are unchanged, and so is every call our component uses. That covers the `RadioFrequency` base, `set_supports_receiver`, `on_receive` and the vector constructor of `RemoteReceiveData`. Two things to respect in Phase 3, both from 2026.11:
+  - A receiver entity must not be `internal`. Internal entities no longer send receive events.
+  - Entity keys must be unique across IR and RF entities. One receiver per band means each needs its own name.
+- No code change needed. Stay on ESPHome 2026.10.2 until 2026.11.0 is tagged, then bump it with a recompile and the config tests.
+
 ## Not checked
 
 - The three comments on rtl-433-hass/rtl_433#296. I read the opening post and the esphome-rtl433 README it points to.
@@ -253,3 +279,4 @@ Settled in Phase 1 (2026-11-06):
 - [davidcoulson/esp-rtl-sdr](https://github.com/davidcoulson/esp-rtl-sdr), tag `v0.9.4-dc.1`: the driver fork to pin.
 - [rtl-433-hass/rtl_433#296](https://github.com/rtl-433-hass/rtl_433/issues/296): the esphome-rtl433 status thread.
 - [m5stack/M5Unit-PoE-P4-UserDemo](https://github.com/m5stack/M5Unit-PoE-P4-UserDemo): vendor firmware used for the pin check.
+- [home-assistant/core#186686](https://github.com/home-assistant/core/issues/186686) (receiver entity issue, closed by [#186720](https://github.com/home-assistant/core/pull/186720)) and [#192598](https://github.com/home-assistant/core/pull/192598) (aioesphomeapi 46.30.0): the 2026-11-24 re-check.
