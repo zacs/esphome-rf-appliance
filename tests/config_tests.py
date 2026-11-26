@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 import copy
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -387,20 +388,36 @@ def top_level_block(output: str, key: str) -> str:
     return "\n".join(block)
 
 
+# The example pulls the component from GitHub at a pinned commit
+GIT_SOURCE = re.compile(
+    r"( {2}- source:\n)"
+    r" {6}type: git\n"
+    r" {6}url: https://github\.com/zacs/esphome-rf-appliance\n"
+    r" {6}ref: (?P<ref>\S+)\n"
+)
+
+
 def check_example(path: pathlib.Path):
+    text = path.read_text()
+    match = GIT_SOURCE.search(text)
+    if match is None:
+        return f"example {path.name}", ["external_components is not the pinned GitHub source"], ""
+    failures = []
+    if not re.fullmatch(r"[0-9a-f]{40}", match.group("ref")):
+        failures.append(f"component ref {match.group('ref')!r} is not a full commit hash")
+    # Validate against this checkout's component, not the pinned copy on GitHub
+    text = GIT_SOURCE.sub(lambda m: m.group(1) + "      type: local\n      path: ../components\n", text, count=1)
     with tempfile.TemporaryDirectory(prefix="rtlsdr-ex-") as tmp:
         tmp = pathlib.Path(tmp)
-        # Same layout as the repo, so the example's relative path to components/ still works
         shutil.copytree(REPO / "components", tmp / "components")
         (tmp / "examples").mkdir()
-        shutil.copy(path, tmp / "examples" / path.name)
+        (tmp / "examples" / path.name).write_text(text)
         write_secrets(tmp / "examples")
         code, out = run(["config", str(tmp / "examples" / path.name)], tmp)
         if code != 0:
-            return f"example {path.name}", ["validation failed"], out
+            return f"example {path.name}", failures + ["validation failed"], out
         # OTA uploads are encrypted with the api key, and there is no OTA password
         ota_block = top_level_block(out, "ota")
-        failures = []
         if "encryption:" not in ota_block:
             failures.append("ota is not encrypted")
         if "password:" in ota_block:

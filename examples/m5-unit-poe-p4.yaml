@@ -7,7 +7,7 @@
 #   1. esptool chip_id         -> chip revision. Below v3.0 (Unit PoE-P4, SKU U213): engineering_sample: "true".
 #                                 v3.x (Unit PoE-P4X): engineering_sample: "false".
 #   2. esptool flash_id        -> flash size. Change flash_size below if it is not 16MB.
-#   3. Copy examples/secrets.yaml.example to examples/secrets.yaml and fill it in.
+#   3. Put rf_puck_api_key in the secrets.yaml next to this file (see examples/secrets.yaml.example).
 
 substitutions:
   name: rf-puck
@@ -64,10 +64,14 @@ ethernet:
     pin: GPIO50
   phy_addr: 1
 
+# The rtl_sdr component, pinned to a commit. This file needs nothing else from the repo, so it can go
+# straight into an ESPHome dashboard's config folder (with a secrets.yaml holding rf_puck_api_key).
+# Bump the ref when the component changes.
 external_components:
   - source:
-      type: local
-      path: ../components
+      type: git
+      url: https://github.com/zacs/esphome-rf-appliance
+      ref: 3aa76cbb7358cdf9bc8b9baa542b860708445d16
     components: [rtl_sdr]
 
 # Common-anode RGB LED on PWM: R GPIO17, G GPIO15, B GPIO16. Internal: status only, not an HA entity.

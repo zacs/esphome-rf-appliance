@@ -236,7 +236,9 @@ The original options follow, for the record.
 
 Not a decision, but worth knowing: every forwarded burst writes a state row to HA's recorder. I plan a low default rate cap (about 2 per second) and a 1-second dedupe window, to tune on real traffic.
 
-**D4 (open, needed before Phase 3's exit). How to show a "test subscriber" gets timings, in stock HA.** Found in the 2026-11-24 re-check. Stock HA has no way to show the timings of a received RF signal:
+**D4. How to show a "test subscriber" gets timings, in stock HA. Decided 2026-11-26: (c), wait for the first RF receiver consumer integration in core.** Until one exists, the two Phase 3 checks that need a subscriber in HA cannot run: "a press reaches a test subscriber within 1 second" and "timings match a reference capture within 10% per pulse". The other Phase 3 checks go ahead. Look for a consumer at each upstream re-check.
+
+Found in the 2026-11-24 re-check. Stock HA has no way to show the timings of a received RF signal:
 
 - No integration in core consumes an RF receiver yet. `RadioFrequencyReceiverConsumerEntity` is used only by its own tests. The demo integration (`kitchen_sink`) has an RF transmitter but no RF receiver consumer. Infrared, by contrast, has several receiver consumers.
 - The only websocket command is `radio_frequency/list`. There is no subscription for received signals.

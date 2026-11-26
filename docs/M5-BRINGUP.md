@@ -95,6 +95,8 @@ Pass: the log shows the dongle attached at high speed, both bands visited, and f
 esphome run examples/m5-unit-poe-p4.yaml
 ```
 
+The example pulls the `rtl_sdr` component from GitHub at a pinned commit, so it also works on its own. To use an ESPHome dashboard instead, copy the file into the dashboard's config folder and put `rf_puck_api_key` in the dashboard's `secrets.yaml`.
+
 The LED shows the radio state, dim and steady:
 
 | Colour | State |
